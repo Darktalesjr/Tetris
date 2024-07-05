@@ -2,15 +2,19 @@
 
 #include <iostream>
 #include <chrono>
+#include <string>
 
 #include "SDL.h"
 #include "SDL_ttf.h"
+#include "SDL_image.h"
 
 using namespace std;
 
 const uint32_t ROWS = 20;
 const uint32_t COLS = 10;
 const int ZOOM = 40;
+
+int image;
 
 const int TICKTIME = 666;
 
@@ -141,8 +145,6 @@ static inline bool relocateT(int board[ROWS][COLS], bool moveBoard[4][4], int cu
     bool isStopped = 0;
     int st2 = (v == 1) ? (st == 3) ? 0 : st + 1 : (st == 0) ? 3 : st - 1;
     int offX, offY;
-    SDL_SetRenderDrawColor(renderer, COLORS[current[0] - 1][0] / 2, COLORS[current[0] - 1][1] / 2, COLORS[current[0] - 1][2] / 2, 255);
-    SDL_Rect rrect{ ZOOM / 2,ZOOM / 2,ZOOM / 2,ZOOM / 2 };
     if (current[0] == 1)
     {
         for (int ct0 = 0; ct0 < 5; ct0++) {
@@ -218,150 +220,162 @@ static inline void drawField(SDL_Renderer* renderer)
     SDL_DestroyTexture(text);
 }
 
-static inline void renderDrawGame(SDL_Renderer* renderer, int board[ROWS][COLS], bool moveBoard[4][4], int pool[7][2], int pool2[7][2], int poolct, int hold[2], int px, int py)
+static inline void renderDrawGame(SDL_Renderer* renderer, SDL_Texture* texture[7], SDL_Texture* backgroundTexture[10], int board[ROWS][COLS], bool moveBoard[4][4], int pool[7][2], int pool2[7][2], int poolct, int hold[2], int px, int py)
 {
-    SDL_Rect rrect{ ZOOM * 7 + 1,ZOOM * 2, ZOOM * COLS - 1, ZOOM * ROWS - 1 };
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_Rect rrect{ 0,0,WIDTH,HEIGHT };
+    SDL_RenderCopy(renderer, backgroundTexture[image], NULL, &rrect);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 128);
     SDL_RenderFillRect(renderer, &rrect);
     rrect.h = ZOOM - 2, rrect.w = ZOOM - 2;
-
-    for (int ct = 0; ct < ROWS; ct++) for (int ct1 = 0; ct1 < COLS; ct1++) if (board[ct][ct1] != 0)
-    {
-        SDL_SetRenderDrawColor(renderer, COLORS[board[ct][ct1] - 1][0], COLORS[board[ct][ct1] - 1][1], COLORS[board[ct][ct1] - 1][2], 255);
-        rrect.x = (ct1 + 7) * ZOOM + 1, rrect.y = (ct + 2) * ZOOM + 1;
-        SDL_RenderFillRect(renderer, &rrect);
-    }
-
     int ppy = py;
     while (!isStopped(board, moveBoard, px, ppy, pool[poolct]))ppy++;
-    SDL_SetRenderDrawColor(renderer, COLORS[pool[poolct][0] - 1][0] / 2, COLORS[pool[poolct][0] - 1][1] / 2, COLORS[pool[poolct][0] - 1][2] / 2, 255);
+    
     for (int ct = 0; ct < 4; ct++) for (int ct1 = 0; ct1 < 4; ct1++) if (moveBoard[ct][ct1])
     {
         rrect.x = (ct + px + 7) * ZOOM + 1, rrect.y = (ct1 + ppy + 2) * ZOOM + 1;
+        SDL_RenderCopy(renderer, texture[pool[poolct][0] - 1], NULL, &rrect);
         SDL_RenderFillRect(renderer, &rrect);
     }
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    drawField(renderer);
 
-    SDL_SetRenderDrawColor(renderer, COLORS[pool[poolct][0] - 1][0], COLORS[pool[poolct][0] - 1][1], COLORS[pool[poolct][0] - 1][2], 255);
+
+    for (int ct = 0; ct < ROWS; ct++) for (int ct1 = 0; ct1 < COLS; ct1++) if (board[ct][ct1] != 0)
+    {
+        rrect.x = (ct1 + 7) * ZOOM + 1, rrect.y = (ct + 2) * ZOOM + 1;
+        SDL_RenderCopy(renderer, texture[board[ct][ct1] - 1], NULL, &rrect);
+    }
     for (int ct = 0; ct < 4; ct++) for (int ct1 = 0; ct1 < 4; ct1++) if (moveBoard[ct][ct1])
     {
         rrect.x = (ct + px + 7) * ZOOM + 1, rrect.y = (ct1 + py + 2) * ZOOM + 1;
-        SDL_RenderFillRect(renderer, &rrect);
+        SDL_RenderCopy(renderer, texture[pool[poolct][0] - 1], NULL, &rrect);
     }
-
+    
     if (hold[1] != 0)
     {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        rrect.x = ZOOM + 1, rrect.y = ZOOM * 2 + 1, rrect.w = ZOOM * 5 - 2, rrect.h = ZOOM * 4 - 2;
-        SDL_RenderFillRect(renderer, &rrect);
-        SDL_SetRenderDrawColor(renderer, COLORS[hold[0] - 1][0], COLORS[hold[0] - 1][1], COLORS[hold[0] - 1][2], 255);
-
-        rrect.h = ZOOM - 2, rrect.w = ZOOM - 2;
 
         switch (hold[1]) {
         case 2:
             rrect.x = ZOOM * 3, rrect.y = ZOOM * 3;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 4, rrect.y = ZOOM * 3;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 3, rrect.y = ZOOM * 4;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 4, rrect.y = ZOOM * 4;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             break;
         case 3:
             for (int ct = 0; ct < 3; ct++)for (int ct1 = 0; ct1 < 2; ct1++) if (PIECES[hold[0] - 1][ct + ct1 * hold[1]])
             {
                 rrect.x = ZOOM * (2.5 + ct), rrect.y = ZOOM * (3 + ct1);
-                SDL_RenderFillRect(renderer, &rrect);
+                SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             }
             break;
         case 4:
             rrect.x = ZOOM * 2, rrect.y = ZOOM * 3.5;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 3, rrect.y = ZOOM * 3.5;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 4, rrect.y = ZOOM * 3.5;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 5, rrect.y = ZOOM * 3.5;
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[hold[0] - 1], NULL, &rrect);
             break;
         }
     }
-
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); rrect.x = ZOOM * 17 + 1, rrect.y = ZOOM * 2 + 1, rrect.w = ZOOM * 6 - 2, rrect.h = ZOOM * 15 - 2;
-    SDL_RenderFillRect(renderer, &rrect);
-
-    rrect.h = ZOOM - 2, rrect.w = ZOOM - 2;
     for (int ct = poolct - 1; ct >= max(0, poolct - 5); ct--)
     {
-        SDL_SetRenderDrawColor(renderer, COLORS[pool[ct][0] - 1][0], COLORS[pool[ct][0] - 1][1], COLORS[pool[ct][0] - 1][2], 255);
         switch (pool[ct][1]) {
         case 2:
             rrect.x = ZOOM * 19, rrect.y = ZOOM * (3 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 20, rrect.y = ZOOM * (3 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 19, rrect.y = ZOOM * (4 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 20, rrect.y = ZOOM * (4 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             break;
         case 3:
             for (int ct2 = 0; ct2 < 3; ct2++)for (int ct1 = 0; ct1 < 2; ct1++) if (PIECES[pool[ct][0] - 1][ct2 + ct1 * pool[ct][1]])
             {
                 rrect.x = ZOOM * (18.5 + ct2), rrect.y = ZOOM * (3 + (poolct - 1 - ct) * 3 + ct1);
-                SDL_RenderFillRect(renderer, &rrect);
+                SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             }
             break;
         case 4:
             rrect.x = ZOOM * 18, rrect.y = ZOOM * (4 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 19, rrect.y = ZOOM * (4 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 20, rrect.y = ZOOM * (4 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 21, rrect.y = ZOOM * (4 + (poolct - 1 - ct) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool[ct][0] - 1], NULL, &rrect);
             break;
         }
     }
     for (int ct = 6; ct > (poolct + 1 - max(0, poolct - 5)); ct--)
     {
-        SDL_SetRenderDrawColor(renderer, COLORS[pool2[ct][0] - 1][0], COLORS[pool2[ct][0] - 1][1], COLORS[pool2[ct][0] - 1][2], 255);
         switch (pool2[ct][1]) {
         case 2:
             rrect.x = ZOOM * 19, rrect.y = ZOOM * (3 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 20, rrect.y = ZOOM * (3 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 19, rrect.y = ZOOM * (4 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 20, rrect.y = ZOOM * (4 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             break;
         case 3:
             for (int ct2 = 0; ct2 < 3; ct2++) for (int ct1 = 0; ct1 < 2; ct1++) if (PIECES[pool2[ct][0] - 1][ct2 + ct1 * pool2[ct][1]])
             {
                 rrect.x = ZOOM * (18.5 + ct2), rrect.y = ZOOM * (3 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3 + ct1);
-                SDL_RenderFillRect(renderer, &rrect);
+                SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             }
             break;
         case 4:
             rrect.x = ZOOM * 18, rrect.y = ZOOM * (4 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 19, rrect.y = ZOOM * (4 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 20, rrect.y = ZOOM * (4 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             rrect.x = ZOOM * 21, rrect.y = ZOOM * (4 + (5 - ct + (poolct + 1 - max(0, poolct - 5))) * 3);
-            SDL_RenderFillRect(renderer, &rrect);
+            SDL_RenderCopy(renderer, texture[pool2[ct][0] - 1], NULL, &rrect);
             break;
         }
     }
 }
 
+static inline void initTetraminoTextures(SDL_Renderer* renderer, SDL_Texture* texture[7])
+{
+    for (int ct = 0; ct < 7; ct++)
+    {
+        string source = "resources/" + to_string(ct + 1) + ".png";
+        char string[16];
+        strcpy_s(string, source.c_str());
+        texture[ct] = IMG_LoadTexture(renderer, string);
+    }
+}
+
+static inline void initBgTextures(SDL_Renderer* renderer, SDL_Texture* texture[10])
+{
+    for (int ct = 0; ct < 10; ct++)
+    {
+        string source = "resources/backgrounds/" + to_string(ct + 1) + ".jpg";
+        char string[32];
+        strcpy_s(string, source.c_str());
+        texture[ct] = IMG_LoadTexture(renderer, string);
+    }
+}
+
 int main(int argc, char* argv[])
 {
+    srand(time(NULL));
     SDL_Window* window = NULL;
     SDL_Renderer* renderer = NULL;
 
@@ -370,11 +384,15 @@ int main(int argc, char* argv[])
     window = SDL_CreateWindow("Tetris", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_Event event;
+    image = rand() % 10;
     font = TTF_OpenFont("resources/font/hun2.ttf", 40);
-
+    SDL_Texture* tetraminoTextures[7];
+    SDL_Texture* backgroundTextures[10];
+    initTetraminoTextures(renderer, tetraminoTextures);
+    initBgTextures(renderer, backgroundTextures);
     bool running = true;
 
-    srand(time(NULL));
+    
     int pool[7][2]{ 0 };
     int pool2[7][2]{ 0 };
     int poolct = 6;
@@ -394,7 +412,7 @@ int main(int argc, char* argv[])
 
     while (running) {
 
-        renderDrawGame(renderer, board, moveBoard, pool, pool2, poolct, hold, px, py);
+        renderDrawGame(renderer, tetraminoTextures, backgroundTextures, board, moveBoard, pool, pool2, poolct, hold, px, py);
         while (SDL_PollEvent(&event))
         {
             switch (event.type)
